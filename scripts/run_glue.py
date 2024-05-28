@@ -32,7 +32,6 @@ def glue_main(args):
                          --overwrite_output_dir \
                          --output_dir {results_dir}'''
                     os.system(run_str)
-                    exit()
 
 
 if __name__ == "__main__":
