@@ -1,0 +1,8 @@
+reconstruction_type: "svd"
+reconstr_mode: "separated"
+half_init_dec: False
+replacement_module_random_init: True
+r_squared: True
+svd:
+  n_iter: 10
+  random_state: 42
