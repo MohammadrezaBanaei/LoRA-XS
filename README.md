@@ -1,4 +1,4 @@
-# LoRA-XS
+# LoRA-XS: **Lo**w-Rank Adaptation with Extremely Small Number of Parameters
 
 We will update the README soon with instructions to setup the environment and to run experiments.
 
