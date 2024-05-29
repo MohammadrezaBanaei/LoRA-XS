@@ -7,7 +7,7 @@ def glue_main(args):
     task = args.target_task  # should be one of MRPC, RTE and STSB tasks
     model_name = "roberta-large"
 
-    mnli_models_path = "../model_checkpoints/RoBERTa-large/MNLI"
+    mnli_models_path = "model_checkpoints/RoBERTa-large/MNLI"
 
     for seed in [0, 1, 2, 3, 4]:
         for rank in [4, 8, 12, 16, 20, 25]:
