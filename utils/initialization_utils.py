@@ -8,7 +8,7 @@ from peft.utils import _get_submodules
 from torch.nn import init
 from tqdm import tqdm
 
-from .latent_utils import merge_latent, forward_latent
+from .latent_utils import get_delta_weight, forward_latent
 from .svd_utils import get_linear_rec_svd
 
 
@@ -110,7 +110,7 @@ def find_and_initialize(model, peft_config, adapter_name, reconstr_type, reconst
                     replace_module_weights(target.lora_B.default, replacement_decoder_weight.T)
                     if r_squared:
                         target.forward = types.MethodType(forward_latent, target)
-                        target.merge = types.MethodType(merge_latent, target)
+                        target.get_delta_weight = types.MethodType(get_delta_weight, target)
                         replace_module_weights(target.lora_A.default, replacement_encoder_weight.T)
                         target.default_lora_latent_mapping = torch.nn.Linear(lora_config.r, lora_config.r, bias=False)
                         init_module_weights(target.default_lora_latent_mapping, sigma=0.00001)

@@ -17,7 +17,6 @@ from utils.initialization_utils import find_and_initialize
 
 
 IGNORE_INDEX = -100
-DEFAULT_PAD_TOKEN = "[PAD]"
 PROMPT = (
     "Below is an instruction that describes a task. "
     "Write a response that appropriately completes the request.\n\n"
@@ -59,29 +58,6 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: st
         cpu_state_dict = {key: value.cpu() for key, value in state_dict.items()}
         del state_dict
         trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
-
-
-def smart_tokenizer_and_embedding_resize(
-        special_tokens_dict: Dict,
-        tokenizer: transformers.PreTrainedTokenizer,
-        model: transformers.PreTrainedModel,
-):
-    """Resize tokenizer and embedding.
-
-    Note: This is the unoptimized version that may make your embedding size not be divisible by 64.
-    """
-    num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
-    model.resize_token_embeddings(len(tokenizer))
-
-    if num_new_tokens > 0:
-        input_embeddings = model.get_input_embeddings().weight.data
-        output_embeddings = model.get_output_embeddings().weight.data
-
-        input_embeddings_avg = input_embeddings[:-num_new_tokens].mean(dim=0, keepdim=True)
-        output_embeddings_avg = output_embeddings[:-num_new_tokens].mean(dim=0, keepdim=True)
-
-        input_embeddings[-num_new_tokens:] = input_embeddings_avg
-        output_embeddings[-num_new_tokens:] = output_embeddings_avg
 
 
 def _tokenize_fn(strings: Sequence[str], tokenizer: transformers.PreTrainedTokenizer) -> Dict:
@@ -162,17 +138,13 @@ def train():
         script_args.model_name_or_path,
         device_map="auto",
     )
-    # if script_args.adapter_name_or_path is not None:
-    #     print(f"Load {script_args.init_lora_weights} from {script_args.adapter_name_or_path}: ", )
-    #     model = PeftModel.from_pretrained(model, script_args.model_name_or_path,
-    #                                       subfolder=script_args.adapter_name_or_path, is_trainable=True)
+
     if script_args.lora_r is not None:
         lora_config = LoraConfig(
             r=script_args.lora_r,
             lora_alpha=script_args.lora_r,
             # init_lora_weights=script_args.init_lora_weights,
             target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
-            # target_modules=["q_proj", "o_proj", "v_proj", "down_proj"],
             lora_dropout=0,
             task_type="CAUSAL_LM",
         )
@@ -207,19 +179,13 @@ def train():
         param.data = param.data.contiguous()
 
     model.print_trainable_parameters()
-    # print(model)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         script_args.model_name_or_path,
         model_max_length=script_args.model_max_length,
         padding_side="right",
         use_fast=True,
     )
-    if tokenizer.pad_token is None:
-        smart_tokenizer_and_embedding_resize(
-            special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
-            tokenizer=tokenizer,
-            model=model,
-        )
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
     raw_train_datasets = load_dataset(script_args.data_path, split=script_args.dataset_split)
     train_dataset = raw_train_datasets.map(
