@@ -31,7 +31,7 @@ python scripts/run_glue.py --target_task qnli
 ### Training from MNLI-tuned models
 Similar to previous work, the GLUE experiments on MRPC, RTE and STS-B tasks are initialized from an MNLI-tuned model.
 Please run the `scripts/run_glue_pretrained.py` script as follows (using MRPC dataset as an example).
-Please note that you need to put your MNLI-tuned models in the `model_checkpoints` directory before running the script.
+Please note that you need to put your MNLI-tuned models in the `model_checkpoints` directory before running the script. We provide MNLI-tuned (using LoRA-XS) checkpoints with various ranks for the RoBERTa-large model [here](https://drive.google.com/drive/folders/1qGeAvSvG-iRhTopyhIhi55LIUoRSsMob?usp=share_link).
 ```bash
 python scripts/run_glue_pretrained.py --target_task mrpc
 ```
