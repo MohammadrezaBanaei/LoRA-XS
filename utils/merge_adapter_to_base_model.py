@@ -5,6 +5,7 @@ import torch
 import os
 import json
 from pathlib import Path
+from safetensors import safe_open
 from .initialization_utils import find_and_initialize
 
 
@@ -36,15 +37,11 @@ def main(args):
     find_and_initialize(model, peft_config_dict, adapter_name=adapter_name, reconstr_type=reconstr_type,
                         writer=None, reconstruct_config=reconstr_config)
 
-    if "checkpoint-" not in args.adapter:
-        peft_model_weights = torch.load(os.path.join(args.adapter, "adapter_model.bin"), map_location='cuda:0')
-    else:  # loading safe tensors of the LoRA
-        from safetensors import safe_open
-        peft_model_weights = {}
-        with safe_open(os.path.join(args.adapter, "adapter_model.safetensors"),
-                       framework="pt", device="cpu") as f:
-            for key in f.keys():
-                peft_model_weights[key] = f.get_tensor(key)
+    peft_model_weights = {}
+    with safe_open(os.path.join(args.adapter, "adapter_model.safetensors"),
+                   framework="pt", device="cpu") as f:
+        for key in f.keys():
+            peft_model_weights[key] = f.get_tensor(key)
     renamed_state_dict = {
         k.replace(
             "lora_A", "lora_A.default"
