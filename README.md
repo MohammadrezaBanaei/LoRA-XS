@@ -40,7 +40,7 @@ model = get_peft_model(model, config)
 with open("config/reconstruct_config.yaml", 'r') as stream:
     reconstr_config = yaml.load(stream, Loader=yaml.FullLoader)
     
-adapter_name = "default"  # assuming a single LoRA adapter per module should be transformers to LoRA-XS
+adapter_name = "default"  # assuming a single LoRA adapter per module should be transformed to LoRA-XS
 peft_config_dict = {adapter_name: lora_config}
 
 # specifying LoRA rank for the SVD initialization
