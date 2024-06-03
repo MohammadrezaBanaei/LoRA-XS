@@ -39,16 +39,7 @@ class TrainingArguments(transformers.TrainingArguments):
     model_max_length: int = field(default=512, metadata={
         "help": "Maximum sequence length. Sequences will be right padded (and possibly truncated)."}, )
     lora_r: int = field(default=None, metadata={
-        "help": "The rank of the adapter. When passing `None` and `adapter_name_or_path` is also `None`, full fine-tuning is used."})
-    init_lora_weights: Literal[True, "pissa"] = field(
-        default=True,
-        metadata={
-            "help": (
-                "Passing True (default) results in the LoRA initialization."
-                "Passing `pissa` results in PiSSA initialization."
-            ),
-        },
-    )
+        "help": "The rank of the low-rank adapter."})
 
 
 def safe_save_model_for_hf_trainer(trainer: transformers.Trainer, output_dir: str):
@@ -143,7 +134,6 @@ def train():
         lora_config = LoraConfig(
             r=script_args.lora_r,
             lora_alpha=script_args.lora_r,
-            # init_lora_weights=script_args.init_lora_weights,
             target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
             lora_dropout=0,
             task_type="CAUSAL_LM",
