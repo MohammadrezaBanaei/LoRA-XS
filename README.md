@@ -16,10 +16,10 @@ We introduce LoRA-XS (**Lo**w-**R**ank **A**daptation with e**X**tremely **S**ma
 We recommend running the scripts inside a conda environment.
 You can run the following commands to create the conda environment, as well as installing needed libraries:
 ```bash
-git clone git@github.com:MohammadrezaBanaei/LoRA-XS.git
+git clone https://github.com/MohammadrezaBanaei/LoRA-XS.git
 conda create -n loraxs python=3.8.13
 conda activate loraxs
-pip install -r requirements.txt
+cd LoRA-XS ; pip install -r requirements.txt
 ```
 ## Quickstart
 LoRA-XS is built on top of HuggingFace Transformers and PEFT libraries. As demonstrated below, LoRA modules are first
