@@ -7,6 +7,7 @@ import datetime
 import json
 import logging
 import os
+import pathlib
 import random
 import sys
 from dataclasses import dataclass, field
@@ -256,8 +257,10 @@ class ModelArguments:
     )
     cls_learning_rate: float = field(
         default=2e-4, metadata={"help": "LR for classifier."}
+    ),
+    init_loraxs_config_path: str = field(
+        default="config/loraxs_init_config.yaml", metadata={"help": "Path to initialization of loraxs details"}
     )
-
 
 def main():
     # See all possible arguments in src/transformers/training_args.py
@@ -294,12 +297,14 @@ def main():
     if not isinstance(peft_config, PromptLearningConfig):
         peft_config_dict[adapter_name] = peft_config
 
-    with open("config/reconstruct_config.yaml", "r") as stream:
+    with open(os.path.join(pathlib.Path(__file__).parent.resolve(), model_args.init_loraxs_config_path),
+              'r') as stream:
         reconstr_config = yaml.load(stream, Loader=yaml.FullLoader)
-    reconstr_type = reconstr_config["reconstruction_type"]
-    reconstr_config[reconstr_type]["rank"] = peft_config_dict[adapter_name].r
+    init_type = reconstr_config["init_type"]
+    retain_part = reconstr_config["retain_part"]
+    reconstr_config["rank"] = peft_config_dict[adapter_name].r
 
-    training_args.output_dir = f"{training_args.output_dir}/{model_args.model_name_or_path}/{data_args.task_name}/LoRA_init_{reconstr_type}_rank_{peft_config_dict[adapter_name].r}_lr_{training_args.learning_rate}_clslr_{model_args.cls_learning_rate}_seed_{training_args.seed}/output_{now}"
+    training_args.output_dir = f"{training_args.output_dir}/{model_args.model_name_or_path}/{data_args.task_name}/rank_{peft_config_dict[adapter_name].r}/LoRAXS_{init_type}_{retain_part}_lr_{training_args.learning_rate}_clslr_{model_args.cls_learning_rate}_seed_{training_args.seed}"
     os.makedirs(training_args.output_dir)
 
     log_dir = f"{training_args.output_dir}/tb_logs"
@@ -504,8 +509,6 @@ def main():
         model,
         peft_config_dict,
         adapter_name=adapter_name,
-        reconstr_type=reconstr_type,
-        writer=tb_writer,
         reconstruct_config=reconstr_config,
     )
 
