@@ -80,12 +80,28 @@ please run the following script (using QNLI as an example):
 python scripts/run_glue_no_svd.py --target_task qnli
 ```
 ## Instruction Tuning Experiments
-In order to run the instruction tuning experiment in the paper, where the model is trained on the MetaMathQA dataset
-and then evaluted on GSM8K and MATH benchmarks, please run the following bash script.
-If you want to fine-tune different pretrained model (current default is a Mistral-7B model),
-feel free to change the `BASE_MODEL` variable in the `scripts/run_instruction_tuning.sh` script. 
+In order to run the instruction tuning experiments in the paper, please have a look at the following sections.
+### Instruction Tuning for Mathematical Reasoning
+In these set of experiments, the model is first trained on the MetaMathQA dataset
+and then evaluated on GSM8K and MATH benchmarks.
+Please run the following bash script for fine-tuning and evaluation of a decoder-only model.
+If you want to fine-tune a different pre-trained model (current default is the Mistral-7B model),
+feel free to change the `BASE_MODEL` variable in the `scripts/run_math_tuning.sh` script.
 ```bash
-bash scripts/run_instruction_tuning.sh 
+bash scripts/run_math_tuning.sh 
+```
+### Instruction Tuning for Commonsense Reasoning
+In these set of experiments, the model is first trained on a mixture of commmonsense reasoning datasets, and then separately
+evaluated on eight commonsense datasets.
+In order to perform fine-tuning, please run the following bash script.
+If you want to fine-tune a different pre-trained model (current default is the LLaMA-3 model),
+feel free to change the `BASE_MODEL` variable in the `scripts/run_commonsense_tuning.sh` script. 
+```bash
+bash scripts/run_commonsense_tuning.sh 
+```
+Once the model is fine-tuned, pass the desired LoRA-XS checkpoint to the following bash script for model evaluation.
+```bash
+bash scripts/run_commonsense_evaluate.sh 
 ```
 ## Citation
 If you use this code for your research, please cite the following paper:
