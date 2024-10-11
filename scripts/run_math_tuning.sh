@@ -4,7 +4,7 @@ OUTPUT="output"
 MERGED_PATH="output_merged"
 LORA_RANK=64
 
-python main_instruction_tuning.py \
+python main_math_tuning.py \
     --model_name_or_path $BASE_MODEL \
     --output_dir $OUTPUT \
     --lora_r $LORA_RANK \

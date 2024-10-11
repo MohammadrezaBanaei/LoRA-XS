@@ -12,15 +12,12 @@ from .initialization_utils import find_and_initialize
 def main(args):
     model = AutoModelForCausalLM.from_pretrained(
         args.base_model,
-        # torch_dtype=torch.float16,
         device_map='auto',
     )
     tokenizer = AutoTokenizer.from_pretrained(args.base_model, device_map='auto')
     with open(os.path.join(args.adapter, "adapter_config.json")) as f:
         lora_config_dict = json.load(f)
     lora_config = LoraConfig(**lora_config_dict)
-    # lora_config = PeftConfig.from_pretrained(args.adapter)
-    # model = PeftModel.from_pretrained(model, args.adapter, config=lora_config)
     model = get_peft_model(model, lora_config)
 
     adapter_name = "default"
