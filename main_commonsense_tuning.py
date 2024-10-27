@@ -191,7 +191,7 @@ def train(
     if adapter_name == "loraxs":
         peft_config_dict = {"default": config}
 
-        with open("../config/reconstruct_config.yaml", 'r') as stream:
+        with open("config/reconstruct_config.yaml", 'r') as stream:
             reconstr_config = yaml.load(stream, Loader=yaml.FullLoader)
         reconstr_type = reconstr_config['reconstruction_type']
         reconstr_config[reconstr_type]['rank'] = lora_r
