@@ -57,4 +57,5 @@ triton==2.2.0
 vllm==0.4.1
 wandb==0.13.5
 xformers==0.0.25
-yarl==1.8.1  
+yarl==1.15.2
+Fraction==2.2.0
