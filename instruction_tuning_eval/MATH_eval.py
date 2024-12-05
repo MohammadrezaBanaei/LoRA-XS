@@ -33,7 +33,7 @@ def process_results(doc, completion, answer):
         else:
             extract_ans = extract_ans_temp
         extract_ans = extract_ans.strip()
-        if util.is_equiv(extract_ans, answer):
+        if utils.is_equiv(extract_ans, answer):
             return True
         else:
             return False
@@ -71,7 +71,7 @@ def test_hendrycks_math(model, data_path, start=0, end=MAX_INT, batch_size=1, te
             temp_instr = problem_prompt.format(instruction=item["instruction"])
             hendrycks_math_ins.append(temp_instr)
             solution = item['output']
-            temp_ans = remove_boxed(util.last_boxed_only_string(solution))
+            temp_ans = remove_boxed(utils.last_boxed_only_string(solution))
             hendrycks_math_answers.append(temp_ans)
 
     print('total length ===', len(hendrycks_math_ins))
