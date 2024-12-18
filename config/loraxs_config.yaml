@@ -1,0 +1,2 @@
+init_type: "svd_on_w" # options "random" "svd_on_w" "svd_on_random"
+retain_part: 'top'
