@@ -9,20 +9,24 @@ from torch.nn import init
 from tqdm import tqdm
 
 from .latent_utils import get_delta_weight, forward_latent
-from .svd_utils import get_linear_rec_svd
 
 
-def get_replacement_module(weight, module_name, type, writer, reconstruct_config):
-    cfg = reconstruct_config[type]
-    if type == 'svd':
-        reconstructed_matrix, enc, dec = get_linear_rec_svd(weight.cpu().detach().numpy(), cfg['rank'],
-                                                            cfg['n_iter'],
-                                                            cfg['random_state'])
-        final_enc = torch.tensor(enc, dtype=weight.dtype, device=weight.device)
-        final_dec = torch.tensor(dec, dtype=weight.dtype, device=weight.device)
+def get_svd_replacement_module(weight, cfg):
+    u, s, vh = torch.linalg.svd(weight, full_matrices=False)
+    u = u @ torch.diag(s)
+    r = cfg['rank']
+    retain_part = cfg['retain_part']  # 'top' or 'bottom'
+
+    if retain_part == 'top':
+        u = u[:, :r]  # Select top r singular vectors
+        vh = vh[:r, :]
+    elif retain_part == 'bottom':
+        u = u[:, -r:]  # Select bottom r singular vectors
+        vh = vh[-r:, :]
     else:
-        raise NotImplementedError(f"{type} is currently not supported.")
-    return final_enc, final_dec
+        raise ValueError(f"Invalid retain_part: {retain_part}, should be 'top' or 'bottom'")
+
+    return u, vh
 
 
 def init_module_weights(target_module: torch.nn.Linear, sigma: float):
@@ -54,26 +58,22 @@ def update_decoder_weights(target_module, new_weight):
         if "lora_" in name:
             module.to(device)
 
-
-def kaiming_uniform_init_lower_half(matrix: torch.tensor):
-    rows, _ = matrix.size()
-    init.kaiming_uniform_(matrix[math.ceil(rows / 2):, :], a=math.sqrt(5))
-    return matrix
-
 def kaiming_uniform_init(matrix: torch.tensor):
     init.kaiming_uniform_(matrix, a=math.sqrt(5))
     return matrix
-  
-def find_and_initialize(model, peft_config, adapter_name, reconstr_type, reconstruct_config, writer):
+
+
+def find_and_initialize(model, peft_config, adapter_name, reconstruct_config):
     """
     :param adapter_name: options: 'default'
-    :param reconstr_type: options: 'svd'
     """
-    half_init_dec = reconstruct_config['half_init_dec']
-    replacement_module_random_init = reconstruct_config['replacement_module_random_init']
-    reconstruction_mode = reconstruct_config['reconstr_mode']
     lora_config = peft_config[adapter_name]
-    r_squared = reconstruct_config['r_squared']  # whether using r*r matrix between lora_A and lora_B or not
+
+    init_type = reconstruct_config['init_type']
+    assert init_type in ['svd_on_w', 'random', 'svd_on_random']
+    is_r_squared = reconstruct_config['r_squared']
+    print('Config:', reconstruct_config)
+
     loaded_in_8bit = getattr(model, "is_loaded_in_8bit", False)
     if loaded_in_8bit and not is_bnb_available():
         raise ImportError(
@@ -83,6 +83,7 @@ def find_and_initialize(model, peft_config, adapter_name, reconstr_type, reconst
     is_target_modules_in_base_model = False
     key_list = [key for key, _ in model.named_modules()]
     assert (not isinstance(lora_config.target_modules, str))
+
     print("Iterating through model's specified modules to initialize A/B matrices.")
     for key in tqdm(key_list):
         target_module_found = any(key.endswith(target_key) for target_key in lora_config.target_modules)
@@ -91,39 +92,33 @@ def find_and_initialize(model, peft_config, adapter_name, reconstr_type, reconst
                 is_target_modules_in_base_model = True
             _, target, target_name = _get_submodules(model, key)
 
-            if reconstruction_mode == 'separated':
-                replacement_encoder_weight, replacement_decoder_weight = get_replacement_module(weight=target.weight.T,
-                                                                                                module_name=key,
-                                                                                                type=reconstr_type,
-                                                                                                writer=writer,
-                                                                                                reconstruct_config=reconstruct_config)
+            if init_type == 'svd_on_w':
+                replacement_encoder_weight, replacement_decoder_weight = get_svd_replacement_module(weight=target.weight.T,
+                                                                                                    cfg=reconstruct_config)
+            elif init_type == 'svd_on_random':
+                random_w = kaiming_uniform_init(torch.zeros_like(target.weight.T))
+                replacement_encoder_weight, replacement_decoder_weight = get_svd_replacement_module(weight=random_w,
+                                                                                                    cfg=reconstruct_config)
+            elif init_type == 'random':
+                random_w = kaiming_uniform_init(torch.zeros_like(target.weight.T))
+                replacement_encoder_weight, replacement_decoder_weight = get_svd_replacement_module(weight=random_w,
+                                                                                                    cfg=reconstruct_config)
+                kaiming_uniform_init(replacement_encoder_weight)
+                kaiming_uniform_init(replacement_decoder_weight)
 
-                if not isinstance(target, peft.tuners.lora.Linear):
-                    raise NotImplementedError('Only initialization for peft.tuners.lora.Linear type is implemented.')
-                    # TODO implement for Linear8bitLt
-                else:
-                    if half_init_dec:
-                        kaiming_uniform_init_lower_half(replacement_decoder_weight)
-                    if replacement_module_random_init:
-                        kaiming_uniform_init(replacement_encoder_weight)
-                        kaiming_uniform_init(replacement_decoder_weight)
-                    replace_module_weights(target.lora_B.default, replacement_decoder_weight.T)
-                    if r_squared:
-                        target.forward = types.MethodType(forward_latent, target)
-                        target.get_delta_weight = types.MethodType(get_delta_weight, target)
-                        replace_module_weights(target.lora_A.default, replacement_encoder_weight.T)
-                        target.default_lora_latent_mapping = torch.nn.Linear(lora_config.r, lora_config.r, bias=False)
-                        init_module_weights(target.default_lora_latent_mapping, sigma=0.00001)
-                        target.default_lora_latent_mapping.to(target.lora_A.default.weight.device)
-
-                        target.lora_A.default.weight.requires_grad = False  # only the r*r matrix will be tuned
-                        target.lora_B.default.weight.requires_grad = False  # only the r*r matrix will be tuned
-
-                    else:
-                        init_module_weights(target.lora_A.default, sigma=0.00001)
-
+            if not isinstance(target, peft.tuners.lora.Linear):
+                raise NotImplementedError('Only initialization for peft.tuners.lora.Linear type is implemented.')
             else:
-                raise NotImplementedError("The only supported mode is: separated.")
+                replace_module_weights(target.lora_B.default, replacement_decoder_weight.T)
+                target.forward = types.MethodType(forward_latent, target)
+                target.get_delta_weight = types.MethodType(get_delta_weight, target)
+                replace_module_weights(target.lora_A.default, replacement_encoder_weight.T)
+                target.default_lora_latent_mapping = torch.nn.Linear(lora_config.r, lora_config.r, bias=False)
+                init_module_weights(target.default_lora_latent_mapping, sigma=0.00001)
+                target.default_lora_latent_mapping.to(target.lora_A.default.weight.device)
+
+                target.lora_A.default.weight.requires_grad = False  # only the r*r matrix will be tuned
+                target.lora_B.default.weight.requires_grad = False  # only the r*r matrix will be tuned
 
     if not is_target_modules_in_base_model:
         raise ValueError(
